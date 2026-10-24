@@ -15,9 +15,12 @@ public class UserService {
     private UserRepository userRepository;
 
     public Users getCurrentUser(Authentication authentication) {
-        Users user = findUserByEmail(authentication.getName());
 
-        return user;
+        if(authentication.getName() == null || authentication.getName().isEmpty()){
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+
+        return findUserByEmail(authentication.getName());
     }
 
     @Transactional
