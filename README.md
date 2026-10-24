@@ -176,7 +176,3 @@ Create a new versioned migration for each schema change. Avoid modifying migrati
 ## Project Goals
 
 TaskMaster is a backend engineering project focused on REST API design, authentication and authorization, relational data modeling, database migrations, and maintainable Spring Boot architecture.
-
-## License
-
-Add a license file if you intend to distribute this project publicly.
