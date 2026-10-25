@@ -3,6 +3,8 @@ package com.mridnal.TaskMaster.tasks.comments;
 import com.mridnal.TaskMaster.tasks.comments.dto.CommentResponse;
 import com.mridnal.TaskMaster.tasks.comments.dto.CreateCommentRequest;
 import com.mridnal.TaskMaster.tasks.comments.dto.UpdateCommentRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -12,12 +14,14 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/tasks/{taskId}/comments")
+@Tag(name = "Comment Controller", description = "Create and Read comments on tasks")
 public class TaskCommentsController {
 
     @Autowired
     private TaskCommentsService commentService;
 
     @PostMapping
+    @Operation(summary = "Create a comment")
     public CommentResponse createComment(
             @PathVariable Long taskId,
             @Valid @RequestBody CreateCommentRequest request,
@@ -26,6 +30,7 @@ public class TaskCommentsController {
     }
 
     @GetMapping
+    @Operation(summary = "Get all Comments in task")
     public List<CommentResponse> getComments(
             @PathVariable Long taskId,
             Authentication authentication) {
@@ -33,6 +38,7 @@ public class TaskCommentsController {
     }
 
     @PatchMapping("/{commentId}")
+    @Operation(summary = "Update a comment")
     public CommentResponse updateComment(
             @PathVariable Long taskId,
             @PathVariable Long commentId,
@@ -42,6 +48,7 @@ public class TaskCommentsController {
     }
 
     @DeleteMapping("/{commentId}")
+    @Operation(summary = "Delete comment")
     public void deleteComment(
             @PathVariable Long taskId,
             @PathVariable Long commentId,

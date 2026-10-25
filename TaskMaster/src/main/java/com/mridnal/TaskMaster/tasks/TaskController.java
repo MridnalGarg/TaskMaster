@@ -16,7 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
-@Tag(name = "Tasks", description = "Task management APIs")
+@Tag(name = "Tasks", description = "Task management")
 @RestController
 @RequestMapping("/api/v1/tasks")
 public class TaskController {
@@ -100,6 +100,7 @@ public class TaskController {
                 .toList();
     }
 
+    @Operation(summary = "Assign the task to user")
     @PutMapping("/{taskId}/assign")
     public TaskResponse assignTask(
             @PathVariable("taskId") Long taskId,
