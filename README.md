@@ -1,178 +1,251 @@
 # TaskMaster
 
-A REST API for task and project management built with Java 21 and Spring Boot. Supports JWT authentication, project memberships, task assignment, filtering, search, and task comments.
+A project and task management REST API built with Java and Spring Boot. TaskMaster supports project collaboration, task assignment, JWT-based authentication, and time-limited project invitations.
 
-## Features
+## Table of Contents
 
-- **Authentication:** JWT-based registration and login.
-- **Users:** User profiles and management.
-- **Projects:** Project creation and membership-based access.
-- **Tasks:** Task creation, assignment, and status management.
-- **Filtering & Search:** Filter tasks by status and search by title or description.
-- **Comments:** Add, view, edit, and delete task comments.
-- **API Documentation:** Interactive Swagger UI with Bearer JWT authentication.
-- **Database Migrations:** Version-controlled schema management using Flyway.
+- [Overview](#overview)
+- [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
+- [Authentication and Security](#authentication-and-security)
+- [Projects and Collaboration](#projects-and-collaboration)
+- [Task Management](#task-management)
+- [JWT Project Invitations](#jwt-project-invitations)
+- [API Documentation with Swagger](#api-documentation-with-swagger)
+- [Configuration](#configuration)
+- [Local Development](#local-development)
+- [Security Considerations](#security-considerations)
 
-## Tech Stack
+## Overview
 
-- Java 21
-- Spring Boot 4.1.1
-- Spring Security
-- JWT (JJWT)
-- Spring Data JPA / Hibernate
-- PostgreSQL
-- Flyway
-- Maven
-- Springdoc OpenAPI 3.x
-- Docker
+TaskMaster is a backend application designed to manage projects, teams, and tasks through REST APIs.
 
-## Getting Started
+The application focuses on practical backend engineering concepts:
+
+- RESTful API design
+- JWT-based authentication and authorization
+- Relational data modeling with PostgreSQL
+- Persistence using Spring Data JPA and Hibernate
+- Database schema versioning with Flyway
+- Role-based project collaboration
+- Secure, time-limited project invitations
+- API exploration and testing using Swagger UI
+
+## Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Java | Application language |
+| Spring Boot | Application framework |
+| Spring Security | Authentication and authorization |
+| JWT | Stateless authentication and invitation tokens |
+| Spring Data JPA / Hibernate | ORM and persistence |
+| PostgreSQL | Relational database |
+| Flyway | Database schema migrations |
+| Maven | Dependency and build management
+| Springdoc OpenAPI / Swagger UI | API documentation and testing |
+
+## Architecture
+
+TaskMaster follows a modular backend structure. Each domain is separated into entities, repositories, services, and controllers.
+
+The primary modules include:
+
+- **Users:** Registration, user lookup, and authenticated user access.
+- **Projects:** Project creation and ownership.
+- **Project memberships:** Association between users and projects, including collaboration roles.
+- **Tasks:** Task creation, assignment, status management, and task retrieval.
+- **Project invitations:** Secure, time-limited invitation links using signed JWTs.
+
+## Authentication and Security
+
+TaskMaster uses Spring Security with JWT-based authentication.
+
+The intended authentication flow is:
+
+1. A user registers with their credentials.
+2. The application stores a password hash rather than a plaintext password.
+3. The user authenticates and receives an access token.
+4. The client sends the access token in the `Authorization` header.
+5. Spring Security validates the token and establishes the authenticated principal.
+
+Example:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+Protected endpoints use the authenticated identity to determine which user is making the request.
+
+Normal access tokens and invitation tokens have different purposes and must be validated separately.
+
+## Projects and Collaboration
+
+Projects organize tasks and collaboration.
+
+The project domain includes:
+
+- Project creation and ownership.
+- Retrieval of projects accessible to a user.
+- Project membership management.
+- Invitations to join projects.
+- Authorization checks for project operations.
+
+The current role model distinguishes project ownership, team leadership, and team membership. Enforce the role rules consistently in service-layer authorization logic.
+
+## Task Management
+
+The task module manages work associated with projects.
+
+The intended capabilities include:
+
+- Creating and retrieving tasks.
+- Recording task titles, descriptions, due dates, and status.
+- Associating a reporter and an assignee with a task.
+- Assigning tasks to users.
+- Listing tasks assigned to the authenticated user.
+- Filtering tasks by status.
+- Searching task titles and descriptions.
+
+Use request DTOs for input validation and response DTOs to avoid exposing persistence entities directly.
+
+## JWT Project Invitations
+
+TaskMaster supports a stateless invitation design using signed JWTs. Invitations do not require a dedicated invitation table.
+
+### Invitation flow
+
+1. An authorized project owner requests an invitation for a user.
+2. The backend generates a signed invitation JWT.
+3. The backend returns a invitation URL containing the token.
+4. The invitee authenticates using their normal account.
+5. The backend validates the invitation token and checks that the authenticated user matches the intended invitee.
+6. The backend loads the project and creates membership if the user is not already a member.
+
+### Expiration
+
+The default configured lifetime is 48 hours.
+
+After expiration, the invitation token must be rejected. The lifetime is configurable through application properties.
+
+### Acceptance rules
+
+- The token signature and expiration must be valid.
+- The token issuer and purpose must be correct.
+- The authenticated user must match the invitee in the token.
+- The project must still exist.
+- Membership creation must be idempotent.
+- The database should enforce uniqueness of the project/user membership pair.
+
+### Stateless invitation limitations
+
+Because invitations are not stored in the database:
+
+- Individual invitations cannot be revoked before expiration without introducing additional state.
+- A token is not inherently single-use.
+- There is no persistent invitation audit history.
+- Membership checks must handle repeated and concurrent acceptance requests safely.
+
+These trade-offs are intentional for the initial implementation. If revocation, strict single-use semantics, or invitation audit history becomes necessary, add persistent invitation state.
+
+## API Documentation with Swagger
+
+TaskMaster uses Springdoc OpenAPI to expose interactive API documentation.
+
+When the application is running locally, open:
+
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+Protected endpoints require authentication. In Swagger UI, use the **Authorize** control to provide the normal access token:
+
+```text
+Bearer <access-token>
+```
+
+The Swagger security scheme should use HTTP Bearer authentication with JWT.
+
+The Swagger UI and OpenAPI documentation routes must be explicitly permitted in Spring Security configuration if they are intended to be publicly accessible.
+
+## Configuration
+
+Configure the database and security secrets through environment variables or local, untracked configuration.
+
+Example `application.properties`:
+
+```properties
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/taskmaster}
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
+
+spring.jpa.hibernate.ddl-auto=validate
+spring.flyway.enabled=true
+
+app.frontend.base-url=${FRONTEND_BASE_URL:http://localhost:3000}
+app.invitation.jwt-secret=${INVITATION_JWT_SECRET}
+app.invitation.expiration-hours=48
+```
+
+These properties are examples; retain the datasource, migration, and security settings that match the actual project configuration.
+
+Generate a dedicated Base64-encoded invitation signing secret with at least 32 random bytes:
+
+```bash
+openssl rand -base64 32
+```
+
+Set the output as `INVITATION_JWT_SECRET`. Do not reuse the normal access-token signing secret.
+
+## Local Development
 
 ### Prerequisites
 
-- Java 21+
-- Maven
-- PostgreSQL, or Docker with Docker Compose
+- A compatible JDK.
+- Maven.
+- Docker and Docker Compose, if using the project's containerized PostgreSQL setup.
+- Environment variables for database credentials and JWT secrets.
 
-### Configuration
+### Setup
 
-Configure the database connection and JWT secret in your environment or `application.properties`.
+1. Clone the repository.
+2. Configure the database connection and required environment variables.
+3. Start PostgreSQL using the project's Docker configuration.
+4. Run the application.
+5. Allow Flyway to apply pending migrations.
+6. Register a test user and authenticate.
+7. Create a project and test the project and task APIs.
+8. Generate an invitation for another registered user.
+9. Authenticate as the invited user and test invitation acceptance.
+10. Inspect the resulting membership and verify authorization behavior.
 
-Example environment variables:
+Migrate flyway scripts manually
 
-```env
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/task_master
-SPRING_DATASOURCE_USERNAME=task_user
-SPRING_DATASOURCE_PASSWORD=your_password
-JWT_SECRET=your_base64_encoded_secret
+```bash
+mvn flyway:migrate
 ```
 
-Ensure the variable names match the placeholders configured in your application.
-
-### Run the application
-
-Linux/macOS:
+Use the project's existing Maven wrapper if available.
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Windows:
+On Windows:
 
-```bash
-mvnw.cmd spring-boot:run
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
 
-Alternatively, if Docker Compose is configured:
+## Security Considerations
 
-```bash
-docker compose up --build
-```
-
-The application runs at `http://localhost:8080` by default.
-
-## Swagger API Documentation
-
-Swagger UI lets you explore endpoints, inspect request and response schemas, and execute API requests from your browser.
-
-- **Swagger UI:** http://localhost:8080/swagger-ui/index.html
-- **OpenAPI JSON:** http://localhost:8080/v3/api-docs
-
-### How to use Swagger
-
-**1. Open Swagger UI**
-
-Start TaskMaster and open the Swagger UI URL above.
-
-**2. Register or log in**
-
-Find the authentication endpoints under the relevant controller tag.
-
-Register a user if necessary, then execute:
-
-```http
-POST /api/v1/auth/login
-```
-
-Provide the login request body expected by the API. Copy the JWT access token from the response.
-
-**3. Authorize Swagger**
-
-1. Click **Authorize** near the top of Swagger UI.
-2. Paste the JWT token into the Bearer authentication field.
-3. Click **Authorize**, then close the dialog.
-
-For an HTTP Bearer scheme, normally paste the raw JWT without adding the `Bearer ` prefix.
-
-**4. Execute protected endpoints**
-
-Expand an endpoint, click **Try it out**, supply the required parameters or request body, and click **Execute**.
-
-Swagger will attach the authorization header to protected requests:
-
-```http
-Authorization: Bearer <your-jwt>
-```
-
-### Authentication and logout
-
-- Swagger's **Authorize** dialog stores the token for authorized requests.
-- To clear Swagger's saved token, click **Authorize** and then **Logout**.
-- `springdoc.swagger-ui.persistAuthorization=true` preserves authorization across page refreshes.
-- Clearing Swagger's token does not invalidate a JWT already issued by the backend. Server-side token invalidation requires a backend revocation mechanism.
-
-Swagger's standard configuration does not automatically extract the JWT from the login response or clear it when an API logout endpoint is called. That behavior requires additional Swagger UI customization.
-
-## API Overview
-
-Base URL: `/api/v1`
-
-| Resource | Operations |
-|---|---|
-| Authentication | Register and log in |
-| Users | Manage user profiles |
-| Projects | Create and retrieve projects |
-| Tasks | Create, assign, filter, and search tasks |
-| Task Comments | Add, list, edit, and delete comments |
-
-### Example task endpoints
-
-Retrieve tasks assigned to the authenticated user:
-
-```http
-GET /api/v1/tasks/assigned/me
-```
-
-Filter by status:
-
-```http
-GET /api/v1/tasks/assigned/me?status=OPEN
-```
-
-Search by title or description:
-
-```http
-GET /api/v1/tasks/assigned/me?search=login
-```
-
-Combine filtering and search:
-
-```http
-GET /api/v1/tasks/assigned/me?status=COMPLETED&search=login
-```
-
-Exact endpoint availability depends on the current controller implementation. Use Swagger UI as the source of truth for the routes exposed by the running application.
-
-## Database Migrations
-
-Flyway manages database schema changes. Migration files are typically located at:
-
-```text
-src/main/resources/db/migration/
-```
-
-Create a new versioned migration for each schema change. Avoid modifying migrations that have already been applied to a database.
-
-## Project Goals
-
-TaskMaster is a backend engineering project focused on REST API design, authentication and authorization, relational data modeling, database migrations, and maintainable Spring Boot architecture.
+- Never store or log plaintext passwords.
+- Do not expose password hashes in API responses.
+- Keep access-token and invitation-token signing secrets separate.
+- Validate token purpose, signature, issuer, expiration, and intended invitee.
+- Do not treat an invitation token as a normal authentication token.
+- Enforce authorization in service methods, not only in the frontend.
+- Enforce a unique constraint on `(project_id, user_id)` in project memberships.
+- Avoid logging authorization headers or raw invitation tokens.
+- Use HTTPS in deployed environments.
+- Keep database credentials and secrets out of source control.
+- Test invalid, expired, mismatched, and repeatedly submitted invitation tokens.
